@@ -11,7 +11,7 @@ module.exports = (type, value, interaction) => {
 
             if (!role) return reject("Role does not exist");
 
-            await member.roles.add(role);
+            await member.roles.remove(role);
 
             return resolve(true);
         }
@@ -19,7 +19,7 @@ module.exports = (type, value, interaction) => {
         else if (type == "coins" || type == "coin") {
             if (!value || typeof value !== "number") return reject("Invalid button action settings");
 
-            await Utils.variables.db.update.coins.updateCoins(member, value, 'add');
+            await Utils.variables.db.update.coins.updateCoins(member, value, 'remove');
 
             return resolve(true);
         }
@@ -27,15 +27,11 @@ module.exports = (type, value, interaction) => {
         else if (type == "xp" || type == "exp" || type == "experience") {
             if (!value || typeof value !== "number") return reject("Invalid button action settings");
 
-            let startingData = await Utils.variables.db.get.getExperience(member);
-
-            await Utils.variables.db.update.experience.updateExperience(member, startingData.level, value, 'add');
+            await Utils.variables.db.update.experience.updateExperience(member, 1, value, 'remove');
 
             let { level, xp } = await Utils.variables.db.get.getExperience(member);
-
             if (!level) level = 1;
             if (!xp) xp = 0;
-
             let xpNeeded = ~~((level * (175 * level) * 0.5)) - xp;
 
             while (xpNeeded <= 0) {
@@ -51,12 +47,17 @@ module.exports = (type, value, interaction) => {
         else if (type == "level" || type == "levels") {
             if (!value || typeof value !== "string") return reject("Invalid button action settings");
 
-            let { level, xp } = await Utils.variables.db.get.getExperience(member);
+            let { level } = await Utils.variables.db.get.getExperience(member);
+            if (!level) level = 1;
 
-            level += value;
-            let xpNeeded = ~~(((level - 1) * (175 * (level - 1)) * 0.5)) - xp;
+            level -= value;
+            let xpNeeded = ~~(((level - 1) * (175 * (level - 1)) * 0.5));
+            if (level < 1) {
+                xpNeeded = 0;
+                level = 1;
+            }
 
-            await Utils.variables.db.update.experience.updateExperience(member, level, xpNeeded, 'add');
+            await Utils.variables.db.update.experience.updateExperience(member, level, xpNeeded, 'set');
 
             return resolve(true);
         }
