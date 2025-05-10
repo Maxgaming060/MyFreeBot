@@ -3,7 +3,7 @@ const Embed = Utils.Embed;
 const lang = Utils.variables.lang;
 
 module.exports = {
-    name: "add",
+    name: "remove",
     run: async (bot, messageOrInteraction, args, { prefixUsed, member, user, channel, reply }) => {
         return new Promise(async resolve => {
             const ticket = await Utils.variables.db.get.getTickets(channel.id);
@@ -30,47 +30,54 @@ module.exports = {
             if (targetUser.id == user.id) {
                 reply(Embed({ 
                     preset: "error", 
-                    description: lang.TicketModule.Commands.Add.Errors.AddSelf 
+                    description: lang.TicketModule.Commands.Remove.Errors.RemoveOwnAccess 
                 }), { ephemeral: true });
 
                 return resolve();
             }
     
             const AddedUsers = await Utils.variables.db.get.getAddedUsers(channel.id);
-            if (channel.members.get(targetUser.id) && AddedUsers.map(u => u.user).includes(targetUser.id)) {
+            if (!AddedUsers.map(u => u.user).includes(targetUser.id) && !channel.members.get(targetUser.id)) {
                 reply(Embed({ 
                     preset: "error", 
-                    description: lang.TicketModule.Commands.Add.Errors.UserAlreadyHaveAccess 
+                    description: lang.TicketModule.Commands.Remove.Errors.NoAccess 
                 }), { ephemeral: true });
 
                 return resolve();
             }
     
-            await Utils.variables.db.update.tickets.addedUsers.add(channel.id, targetUser.id);
+            await Utils.variables.db.update.tickets.addedUsers.remove(channel.id, targetUser.id);
+    
+            if (!channel.permissionsFor(targetUser.id).has("VIEW_CHANNEL")) {
+                reply(Embed({ 
+                    preset: "error", 
+                    description: lang.TicketModule.Commands.Remove.Errors.CantBeRemoved 
+                }), { ephemeral: true });
+
+                return resolve();
+            }
     
             await channel.permissionOverwrites.create(targetUser.id, {
-                VIEW_CHANNEL: true, SEND_MESSAGES: true, ADD_REACTIONS: true, READ_MESSAGE_HISTORY: true, ATTACH_FILES: true, EMBED_LINKS: true, USE_EXTERNAL_EMOJIS: true
+                VIEW_CHANNEL: null, SEND_MESSAGES: null, ADD_REACTIONS: null, READ_MESSAGE_HISTORY: null, ATTACH_FILES: null, EMBED_LINKS: null, USE_EXTERNAL_EMOJIS: null
             });
     
             reply(Embed({ 
-                title: lang.TicketModule.Commands.Add.Embeds.UserAdded.Title, 
-                description: lang.TicketModule.Commands.Add.Embeds.UserAdded.Description.replace(/{user}/g, `<@${targetUser.id}>`) 
+                title: lang.TicketModule.Commands.Remove.Embeds.Removed.Title, 
+                description: lang.TicketModule.Commands.Remove.Embeds.Removed.Description.replace(/{user}/g, `<@${targetUser.id}>`) 
             }));
-            
-            bot.emit("ticketUserAdded", ticket, member, targetUser);
+    
+            bot.emit("ticketUserRemoved", ticket, member, targetUser);
 
             return resolve(true);
         });
     },
-    description: "Add a user to a ticket.",
-    usage: "add <@user>",
-    aliases: [
-        "adduser"
-    ],
+    description: "Remove a user from the ticket you are typing in",
+    usage: "remove <@user>",
+    aliases: [],
     arguments: [
         {
             name: "user",
-            description: "The user to add to the ticket",
+            description: "The user to remove from the ticket",
             required: true,
             type: "USER"
         }
